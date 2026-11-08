@@ -19,6 +19,23 @@ listen/
 listen16k/
 models/
 
+# 11/08 additions: 모델 파일, 캐시, 인식한 글자(개인 대화 포함), 녹음·시험 결과
+*.keras
+*.pkl
+*.jsonl
+*.tflite
+*_clips/
+recording_report.csv
+own_embeddings*
+pi_bench/
+other_tmp/
+new3/
+run_*
+fin_*
+oo_*
+nn_*
+mm_*
+
 # secrets and local settings
 .env
 *.pem
