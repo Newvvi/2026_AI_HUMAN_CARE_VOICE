@@ -7,9 +7,20 @@
 | 위급상황 음성/음향 데이터 (088) | AI Hub (한국지능정보사회진흥원, NIA), 구축: ㈜아이엠알 컨소시엄 (2020 구축, 16종 분류 약 3,500시간) | AI Hub 이용 조건 적용 (신청·승인 필요, 받은 데이터의 재배포 제한, 학습한 모델의 활용은 가능하다고 안내됨). **이 저장소에 데이터를 올리지 않는다** |
 | Zeroth-Korean | OpenSLR SLR40 (https://www.openslr.org/40/) | **CC BY 4.0**: 출처를 표시해야 함 (이 항목이 표시). 학습 51.6시간 105명, 시험 1.2시간 10명 |
 
+## 모델·소프트웨어 (11/08 추가, 라이선스는 각 프로젝트 표기 기준이며 확인 필요)
+
+| 이름 | 쓰임 | 라이선스(확인 필요) |
+|---|---|---|
+| Whisper (OpenAI) | 말소리를 글자로 바꾸는 모델 (tiny, base, small) | MIT |
+| faster-whisper (SYSTRAN), CTranslate2 | 파이에서 Whisper를 int8로 빠르게 실행 | MIT |
+| PyAV, imageio-ffmpeg | 오디오 파일 읽기(m4a 등), 녹음 점검 | BSD, BSD-2 |
+| YAMNet (Google, TF Hub) | 소리 임베딩 (소리 분류 갈래) | Apache 2.0 |
+| Eclipse Mosquitto, paho-mqtt | MQTT 브로커, 파이썬 클라이언트 | EPL/EDL |
+
 ## 하드웨어 문서
 
 - reSpeaker 2-Mics Pi HAT V2 설치 방법은 Seeed Studio 위키(V2 문서)를 참고했다. 설치는 아직 실행하지 않았다.
+- 파이5와 파이4 비교는 제3자 벤치마크([Yodeck](https://www.yodeck.com/news/raspberry-pi-5/), [Zbotic](https://zbotic.in/raspberry-pi-5-benchmarks-real-performance-numbers-vs-pi-4/))와 Raspberry Pi의 H.264 백서(RP-010033)를 참고했다. 파이5 수치는 추정이다.
 
 ## 소프트웨어
 

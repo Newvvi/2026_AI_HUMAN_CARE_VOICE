@@ -40,7 +40,7 @@ pip install --upgrade pip
 pip install numpy scipy soundfile onnxruntime
 ```
 
-- 모델 파일 3개(`urgent_v1_speech.onnx`, `mel_fb.npy`, `urgent_v1_speech_config.json`)는 코랩에서 만들고(`code/colab/cell_P1`), 노트북을 거쳐 파이로 복사한다 (`scp`, 아래).
+- 모델 파일 3개(`urgent_v1_speech.onnx`, `mel_fb.npy`, `urgent_v1_speech_config.json`)는 코랩에서 만들고(`code/colab/cell_P1_export_onnx.py`), 노트북을 거쳐 파이로 복사한다 (`scp`, 아래).
 - 속도 측정: `code/scripts/bench.py`를 `~/urgent/bench.py`로 두고 `python ~/urgent/bench.py`.
 
 ## 3. 속도 측정 결과 (모델 238.5KB)
@@ -178,3 +178,23 @@ python ~/urgent/urgent_service.py --mic plughw:<카드번호>,0 --channels 2    
 
 - 두 후보의 경보 시각이 거의 겹친다. 정식 비교는 60분 스트림의 [04 §9](04_MODEL_EXPERIMENTS.md).
 - ONNX 스레드는 1개로 고정한다(4개가 기본값이면 판단이 약 2배 느렸다).
+
+## 9. 단어 인식(faster-whisper) 설치와 실측 (파이4, 2026-11-08)
+
+자세한 결과와 해석은 [11 §6](11_VOICE_ASR_TRACK.md)에 있고, 여기에는 파이 쪽 정보만 모았습니다. 코드는 [../code/voice_pi/](../code/voice_pi/README.md).
+
+- **환경**: 64비트 OS, Python 3.13 가상환경(`~/asr`), `pip install faster-whisper numpy` (faster-whisper 1.2.1, PyAV 19). 처음 실행할 때 모델(tiny, base, small)을 내려받는다. 메모리는 약 3.7GiB 중 3.3GiB 이상 여유였다.
+- **속도 (int8, 폭 5, 구간당)**: tiny 2.7초, base 5.5초, small 18.8초 (스레드 2). 구간 길이와 상관없이 거의 일정하다 (Whisper가 입력을 30초로 채움).
+- **설정**: 온도 0, 출력 32토큰 제한으로 평균 9.6초 → 1.94초(스레드 4). 내장 VAD는 쓰지 않음.
+- **열**: 방열판 없는 파이4가 유휴 60℃대에서 시작해 40분 연속 실행에서 최고 82.7℃, 온도 소프트제한이 걸렸다. `vcgencmd get_throttled` 읽는 법: 하위 비트(0x1 저전압, 0x2 클럭 제한, 0x4 스로틀링, 0x8 온도 소프트제한)는 **지금** 상태, 상위 비트(0x10000, 0x20000, 0x40000, 0x80000)는 **부팅 후 발생 기록**. 표시를 지우려면 재부팅.
+- **m4a 읽기 오류**: faster-whisper 1.2.1이 `av.open(..., metadata_errors=...)`를 호출하는데 PyAV 19가 이 인자를 받지 않아 `TypeError`가 난다. `voice_service.py`는 이때 PyAV로 직접 읽는다 ([09 #28](09_CORRECTIONS_AND_LESSONS.md)).
+- **가상환경**: 새 ssh 창에서는 `source ~/asr/bin/activate`를 다시 해야 한다 (프롬프트 앞 `(asr)` 확인). 안 하면 `No module named 'faster_whisper'`.
+- **파일 옮기기**: PC에서 `scp`로 보낸다 (파이 접속 창이 아니라 **PC 터미널**에서 실행). 한글 파일 이름은 영문으로 바꿔서 옮긴다.
+- **MQTT(Mosquitto)**: 앱 파트가 안내한 방식(`mosquitto`, `mosquitto-clients` 설치, 비밀번호 파일, `listener 1883`, `allow_anonymous false`)으로 파이4에 직접 설치해 시험할 예정. 가상환경에는 `pip install paho-mqtt`가 따로 필요하다. 계정과 비밀번호는 코드에 쓰지 않고 환경변수 `MQTT_PASSWORD`로 전달한다. **(아직 시험하지 않음)**
+
+## 10. 파이5와의 차이 (추정, 파이5 도착 전)
+
+- 일반 CPU 벤치마크에서 파이5는 파이4의 약 2.1~2.3배(최대 약 3배)로 보고된다 (제3자 측정 포함, 확인 필요: [Yodeck](https://www.yodeck.com/news/raspberry-pi-5/), [Zbotic](https://zbotic.in/raspberry-pi-5-benchmarks-real-performance-numbers-vs-pi-4/)). 우리 Whisper 측정값에 곱한 추정표는 [11 §8](11_VOICE_ASR_TRACK.md).
+- 파이5는 H.264 하드웨어 인코더가 없어 영상 클립을 계속 인코딩하면 코어 하나쯤 든다 ([Raspberry Pi 백서](https://pip-assets.raspberrypi.com/categories/685-app-notes-guides-whitepapers/documents/RP-010033-WP-1-H.264%20encoding%20performance%20on%20Raspberry%20Pi%205_series%20computers.pdf)). 영상은 이벤트 때만 인코딩하는 방식을 권한다.
+- 파이5가 오면 `code/voice_pi/bench_asr_pi.py`를 영상 프로그램을 끈 상태와 켠 상태로 각각 실행해서 추정을 확인한다.
+

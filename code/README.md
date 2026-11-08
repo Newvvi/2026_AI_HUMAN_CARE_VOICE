@@ -16,7 +16,7 @@
 | B (GPU) v2 학습 | 1 → 2 → 3 → 4b → 5 → 6a → 7a → `cell_8a` → `8b` → `8c` → `8c2` → `8d` (8d는 먼저 `SMOKE = True`로 시험) |
 | D (CPU) 스트리밍 평가 | `cell_S0` → `S1` → `S2` → `S3` → `S4` → `S5` → `S6` (`cell_S*_*.py`). 모델 비교는 S0 → S1 → `cell_E1_compare_models.py` |
 
-- `cell_A1`, `cell_P0`에는 코랩 전용 `!pip` 명령이 있어서 일반 파이썬으로는 실행되지 않습니다.
+- `cell_A1`, `cell_P0`, `cell_S0`, `cell_8a`에는 코랩 전용 `!pip` 명령이 있어서 일반 파이썬으로는 실행되지 않습니다.
 - `cell_04_train_v0.py`는 v0 학습 셀(참고용, 이미 저장된 결과가 있으면 실행하지 않음).
 
 ## 2. `scripts/` — 노트북(PC)과 파이에서 실행
@@ -29,10 +29,24 @@
 | `check_output.py` | PC | 변환 결과 점검(음량, 반복 채움 비율, 찌그러짐)과 청취용 샘플 추출 |
 | `bench.py` | 라즈베리파이 | ONNX 모델의 처리 속도 측정 (`~/urgent/models/`에 모델 3개 필요) |
 | `detector.py` | 라즈베리파이 | wav를 마이크처럼 흘려 보내 감지 시험 (규칙 옵션, 코랩 결과와 비교). 사용법 [05 §7](../docs/05_RASPBERRY_PI.md) |
+| `urgent_service.py` | 라즈베리파이 | 판단 규칙(기준값, 연속 N회, 소리 크기 게이트, 쉬는 시간)을 적용하고 앞뒤 10초 클립(wav + JSON)을 저장. ONNX 스레드 1개 고정 |
 
 필요한 패키지: `numpy`, `scipy`, `soundfile` (변환·점검), `onnxruntime`, `numpy`(파이).
 
-## 3. 주의
+## 3. `yamnet_track/` — YAMNet 임베딩 갈래 (11/05 추가)
+
+PC에서 데이터를 정리하는 스크립트와 코랩 노트북입니다. 순서와 설명은 [yamnet_track/README.md](yamnet_track/README.md)를 보세요.
+
+## 4. `voice_pi/` — 파이용 단어 인식 서비스 (11/08 추가)
+
+`voice_service.py`(소리 크기 구간 → Whisper tiny → 위급 단어 규칙 → 이벤트·클립·MQTT), `bench_asr_pi.py`(파이 속도 시험), `rules_eval.py`(규칙 보강 평가). 설치와 사용법은 [voice_pi/README.md](voice_pi/README.md), 결과는 [../docs/11_VOICE_ASR_TRACK.md](../docs/11_VOICE_ASR_TRACK.md).
+
+## 5. `own_recording_eval/` — 직접 녹음 평가 노트북 (11/08 추가)
+
+녹음 점검 스크립트와 코랩 노트북 04~09. 순서와 설명은 [own_recording_eval/README.md](own_recording_eval/README.md).
+
+## 6. 주의
 
 - 코드는 작성 후 **실제 환경에서 단계별로 검산**했지만, 코랩 셀은 순서와 런타임(CPU/GPU)을 지켜야 합니다.
 - 노트북과 스크립트에 **키, 비밀번호, 개인 경로를 넣지 마세요** (이 폴더는 공개 저장소입니다).
+- 새 코드(`voice_pi`, `own_recording_eval`)도 **가짜 데이터·가짜 모델로 흐름을 시험**했고, 실제 파이와 코랩에서의 결과는 문서에 기록했습니다. 마이크 모드(`--mic`)와 MQTT 전송은 실제 장비에서 아직 시험하지 못했습니다.
