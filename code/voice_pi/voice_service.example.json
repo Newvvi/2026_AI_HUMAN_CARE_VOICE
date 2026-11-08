@@ -1,0 +1,17 @@
+{
+  "device_id": "pi-voice",
+  "mic": true,
+  "device": "<arecord -l의 카드 번호 또는 이름>",
+  "channels": 2,
+  "mic_channel": 0,
+  "gate_db": -28.0,
+  "threads": 2,
+  "out": "/home/<USER>/voice/run",
+  "status_file": "/home/<USER>/voice/status.json",
+  "max_clips": 200,
+  "min_free_gb": 1.0,
+  "mqtt_host": "localhost",
+  "mqtt_port": 1883,
+  "mqtt_user": "<MQTT 계정>",
+  "mqtt_topic": "home/alert/audio"
+}

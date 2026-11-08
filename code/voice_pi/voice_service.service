@@ -1,0 +1,24 @@
+# /etc/systemd/system/voice_service.service
+# 설치:  sed "s/<USER>/$USER/g" voice_service.service | sudo tee /etc/systemd/system/voice_service.service
+#        sudo install -m 600 /dev/null /etc/voice_service.env && sudo nano /etc/voice_service.env     (한 줄: MQTT_PASSWORD=비밀번호)
+#        sudo systemctl daemon-reload && sudo systemctl enable --now voice_service
+# 확인:  systemctl status voice_service   /   journalctl -u voice_service -f   /   cat ~/voice/status.json
+[Unit]
+Description=Voice help-request detector (Whisper tiny + keyword rules)
+After=network-online.target mosquitto.service sound.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=<USER>
+WorkingDirectory=/home/<USER>/voice
+EnvironmentFile=/etc/voice_service.env
+ExecStart=/home/<USER>/asr/bin/python3 -u /home/<USER>/voice/voice_service.py --config /home/<USER>/voice/voice_service.json
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=150
+Nice=5
+
+[Install]
+WantedBy=multi-user.target

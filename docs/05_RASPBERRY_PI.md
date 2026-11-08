@@ -192,6 +192,15 @@ python ~/urgent/urgent_service.py --mic plughw:<카드번호>,0 --channels 2    
 - **파일 옮기기**: PC에서 `scp`로 보낸다 (파이 접속 창이 아니라 **PC 터미널**에서 실행). 한글 파일 이름은 영문으로 바꿔서 옮긴다.
 - **MQTT(Mosquitto)**: 앱 파트가 안내한 방식(`mosquitto`, `mosquitto-clients` 설치, 비밀번호 파일, `listener 1883`, `allow_anonymous false`)으로 파이4에 직접 설치해 시험할 예정. 가상환경에는 `pip install paho-mqtt`가 따로 필요하다. 계정과 비밀번호는 코드에 쓰지 않고 환경변수 `MQTT_PASSWORD`로 전달한다. **(아직 시험하지 않음)**
 
+### 9-1. 서비스 운용 (v0.3, 파이 실측 대기)
+
+- **설정 파일**: `voice_service.json` (예시 `code/voice_pi/voice_service.example.json`). 키는 옵션 이름에서 `-`를 `_`로. 비밀번호·토큰 키는 거부된다. 비밀번호는 `/etc/voice_service.env`(권한 600)의 `MQTT_PASSWORD`.
+- **자동 시작**: `code/voice_pi/voice_service.service`를 `/etc/systemd/system/`에 설치 (파일 첫머리 주석에 순서). `Restart=always`로 죽으면 재시작, `journalctl -u voice_service -f`로 로그, `status.json`(30초마다 갱신)으로 메모리·온도·디스크·재시도 현황.
+- **장시간 시험**: `make_soak_wav.py`로 연속 일상 소리에 위급 발화를 20분마다 끼운 파일을 만들고, `voice_service.py --wav <파일> --realtime`으로 실제 속도로 돌린 뒤 `check_soak.py`로 감지·오경보·지연을 확인.
+- **마이크**: 설치 전 `mic_precheck.sh`, 설치와 보정은 [13 런북](13_MIC_DAY_RUNBOOK.md) (마이크 도착 후, 실장비 시험 전).
+- **파이 확인 결과 (11/08, 파일 입력)**: 서비스 메모리 약 660MB(모델 두 개), 시작 후 준비까지 약 36초, 강제 종료 후 12초 안에 재시작, 정상 종료 1.3초, 재부팅 후 자동 시작, MQTT 17/17 도착, 3시간 연속 실행에서 메모리 증가 없음·온도 최고 59.4°C ([11 §7-1](11_VOICE_ASR_TRACK.md)).
+- **백그라운드 작업**: 명령 끝에 `&`를 붙여 시작한 작업은 터미널이 바로 돌아와도 계속 돌고(`nohup`이면 ssh를 닫아도), 새 창에서는 `pgrep -af "voice_service.py"`로 확인한다. 장시간 시험은 서비스(`Restart=always`)가 아니라 `nohup`으로 한 번만 돌린다(서비스는 파일이 끝나면 처음부터 다시 시작해 결과가 섞임).
+
 ## 10. 파이5와의 차이 (추정, 파이5 도착 전)
 
 - 일반 CPU 벤치마크에서 파이5는 파이4의 약 2.1~2.3배(최대 약 3배)로 보고된다 (제3자 측정 포함, 확인 필요: [Yodeck](https://www.yodeck.com/news/raspberry-pi-5/), [Zbotic](https://zbotic.in/raspberry-pi-5-benchmarks-real-performance-numbers-vs-pi-4/)). 우리 Whisper 측정값에 곱한 추정표는 [11 §8](11_VOICE_ASR_TRACK.md).

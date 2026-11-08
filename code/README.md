@@ -39,7 +39,7 @@ PC에서 데이터를 정리하는 스크립트와 코랩 노트북입니다. �
 
 ## 4. `voice_pi/` — 파이용 단어 인식 서비스 (11/08 추가)
 
-`voice_service.py`(소리 크기 구간 → Whisper tiny → 위급 단어 규칙 → 이벤트·클립·MQTT), `bench_asr_pi.py`(파이 속도 시험), `rules_eval.py`(규칙 보강 평가). 설치와 사용법은 [voice_pi/README.md](voice_pi/README.md), 결과는 [../docs/11_VOICE_ASR_TRACK.md](../docs/11_VOICE_ASR_TRACK.md).
+`voice_service.py` v0.3(소리 크기 구간 → Whisper tiny → 위급 단어 규칙 → 이벤트·클립·MQTT, 재시도 별도 작업 줄, 실시간 시뮬레이션), `bench_asr_pi.py`(파이 속도 시험), `rules_eval.py`(규칙 보강 평가), 장시간 시험(`make_soak_wav.py`, `check_soak.py`), 마이크 도구(`calibrate_mic.py`, `mic_precheck.sh`, `install_respeaker_v2.sh`), systemd 유닛과 설정 예시. 설치와 사용법은 [voice_pi/README.md](voice_pi/README.md), 결과는 [../docs/11_VOICE_ASR_TRACK.md](../docs/11_VOICE_ASR_TRACK.md).
 
 ## 5. `own_recording_eval/` — 직접 녹음 평가 노트북 (11/08 추가)
 

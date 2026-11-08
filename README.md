@@ -34,7 +34,8 @@ flowchart LR
 | 오경보 | 0회 | 연속 일상 소리 3시간(학습에 쓰지 않은 기기) + 다른 녹음 87분 |
 | 처리 시간 | 구간당 평균 2.7초, 3시간 중 6.1% | 파이4, 스레드 2 |
 | 소리 분류 모델(비교) | 같은 3시간에서 재현율 85%일 때 오경보 시간당 92회 | 단독 알림 폐기 ([11 §4](docs/11_VOICE_ASR_TRACK.md)) |
-| 아직 못 한 것 | **실제 마이크, 파이5·영상 동시 실행, 어르신 목소리, TV 속 대사** | 마이크·파이5 도착 후 |
+| 서비스 운용 (파이4, 파일 입력) | MQTT 17/17 도착, 자동 시작·재시작 확인, 3시간 장시간 시험 감지 8/8·오경보 0·메모리 증가 없음, 이벤트 지연 중앙 3.1초 | [11 §7-1](docs/11_VOICE_ASR_TRACK.md) |
+| 아직 못 한 것 | **실제 마이크, 파이5·영상 동시 실행, 어르신 목소리, TV 속 대사** | 마이크·파이5 도착 후 ([13](docs/13_MIC_DAY_RUNBOOK.md)) |
 
 ## 이전 갈래의 결과 (소리 분류 CNN, 2026-11-03 기준, 기록용)
 
@@ -71,6 +72,9 @@ flowchart LR
 | 10 | [docs/10_YAMNET_TRACK.md](docs/10_YAMNET_TRACK.md) | **YAMNet 임베딩 갈래** (11/05 추가: 데이터 구조, 위상 반대 스테레오 문제, 분류기 결과, 녹음 계획) |
 | 11 | [docs/11_VOICE_ASR_TRACK.md](docs/11_VOICE_ASR_TRACK.md) | **단어 인식 갈래** (11/08: 직접 녹음 평가, 소리 모델 한계, Whisper 설정 시험, 파이4 실측, 파이5 추정) |
 | 12 | [docs/12_TEAM_AGREEMENT_V05.md](docs/12_TEAM_AGREEMENT_V05.md) | **팀 데이터 협약안 v0.5** (MQTT, 메시지 항목, 판단 규칙, 합의 기록) |
+| 13 | [docs/13_MIC_DAY_RUNBOOK.md](docs/13_MIC_DAY_RUNBOOK.md) | **마이크 도착 당일 런북** (설치, 보정, 시험 순서와 합격 기준) |
+| 14 | [docs/14_RECORDING_CONSENT_TEMPLATE.md](docs/14_RECORDING_CONSENT_TEMPLATE.md) | 녹음 동의서 양식(초안) |
+| 15 | [docs/15_PI5_TEMP_SESSION.md](docs/15_PI5_TEMP_SESSION.md) | **파이5 임시 확인 세션 계획** (SD카드를 파이5에 잠깐 꽂아 속도·열 실측, 계획만 있고 아직 미실행) |
 | - | [docs/EXPERIMENT_LOG.md](docs/EXPERIMENT_LOG.md) | 실험 기록표와 앞으로 쓸 양식 |
 | - | [docs/GLOSSARY.md](docs/GLOSSARY.md) | 용어 설명 (AUC, 재현율, 멜 스펙트로그램 등) |
 | - | [docs/CREDITS.md](docs/CREDITS.md) | 데이터·소프트웨어 출처와 사용 조건 |
