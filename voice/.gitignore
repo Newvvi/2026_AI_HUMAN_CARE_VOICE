@@ -1,0 +1,8 @@
+# 녹음·클립(개인 목소리, 용량 큼)
+*.wav
+*.tar.gz
+own_test/
+# Pi 서비스 실행 기록과 실제 설정(비밀번호 포함)
+pi/data/
+pi/kws_service.json
+__pycache__/

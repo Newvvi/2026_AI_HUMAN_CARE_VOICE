@@ -1,0 +1,24 @@
+{
+ "model_dir": "model",
+ "model": "r3_tcresnet.onnx",
+ "config": "r3_tcresnet_config.json",
+ "thr": 0.95,
+ "gate_rel_db": 15.0,
+ "gate_abs_dbfs": -65.0,
+ "device": "plughw:CARD=seeed2micvoicec,DEV=0",
+ "http_port": 8080,
+ "public_host": "",
+ "pre_s": 10.0,
+ "post_s": 1.0,
+ "max_clips": 300,
+ "mqtt": {
+  "host": "",
+  "port": 1883,
+  "topic": "",
+  "username": "",
+  "password": "",
+  "tls": false,
+  "client_id": "voice-pi"
+ },
+ "data_dir": "data"
+}
