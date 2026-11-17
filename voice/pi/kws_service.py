@@ -111,7 +111,7 @@ def start_http(root, port):
     return srv
 
 
-# ------------------------------------------------------------------ MQTT (QoS 1, 실패하면 pending에 쌓고 다시 보냄)
+# ------------------------------------------------------------------ MQTT (QoS 1, 실패하면 pending에 쌓고 10초마다 다시 보냄)
 class Sender:
     def __init__(self, cfg, data_dir, enabled):
         self.m, self.enabled = cfg["mqtt"], enabled and bool(cfg["mqtt"]["host"]) and bool(cfg["mqtt"]["topic"])
@@ -143,6 +143,9 @@ class Sender:
     def _publish(self, msg):
         if not self.enabled:
             return "보내지 않음"
+        t_end = time.time() + 5
+        while not self.cli.is_connected() and time.time() < t_end:   # 시작 직후·재연결 중이면 잠깐 기다림
+            time.sleep(0.2)
         if not self.cli.is_connected():
             return "연결 안 됨"
         info = self.cli.publish(self.m["topic"], json.dumps(msg, ensure_ascii=False), qos=1)
@@ -166,7 +169,7 @@ class Sender:
                     with open(self.pending, "a", encoding="utf-8") as f:
                         f.write(json.dumps(msg, ensure_ascii=False) + "\n")
                 print("  MQTT: %s" % r, flush=True)
-            if self.enabled and time.time() - last_retry > 30 and os.path.exists(self.pending) and self.cli.is_connected():
+            if self.enabled and time.time() - last_retry > 10 and os.path.exists(self.pending) and self.cli.is_connected():
                 last_retry = time.time()
                 rows = [json.loads(l) for l in open(self.pending, encoding="utf-8") if l.strip()]
                 left = [m for m in rows if self._publish({k: v for k, v in m.items() if not k.startswith("_")}) != "전송"]
@@ -278,7 +281,7 @@ class Detector:
             w.writeframes((np.clip(clip, -1, 1) * 32767).astype("<i2").tobytes())
         os.replace(p + ".tmp", p)                         # 저장을 끝낸 뒤에 보냄
         msg = {"incident_id": iid, "confidence": round(float(ev["conf"]), 2), "occurred_at": occ.isoformat(),
-               "clip_url": "http://%s:%d/clips/%s.wav" % (self.host, self.cfg["http_port"], iid)}
+               "clip_url": "http://%s:%d/clips/%s.wav" % (self.cfg["public_host"] or my_ip(), self.cfg["http_port"], iid)}   # 보낼 때마다 IP 확인
         delay = self.n / SR - ev["t_fire"]
         print("[감지] %s  말 %.1f~%.1f초  클립 %.1f초  점수 %.2f  (감지 후 %.1f초 뒤 전송)" % (
             iid, ev["start"], end, b_s - a_s, ev["conf"], delay), flush=True)

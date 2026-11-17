@@ -1,0 +1,19 @@
+# 음성 감지 서비스 자동 실행 (전원이 켜지면 시작, 멈추면 5초 뒤 다시 시작)
+# 설치:  sudo cp ~/AI_HUMAN_CARE/voice/pi/kws.service /etc/systemd/system/ && sudo systemctl daemon-reload
+# 켜기:  sudo systemctl enable --now kws      끄기(녹음할 때):  sudo systemctl stop kws
+# 상태:  systemctl status kws                  기록 보기:       journalctl -u kws -f
+[Unit]
+Description=Voice emergency keyword service (kws_service.py)
+After=network-online.target mosquitto.service sound.target
+Wants=network-online.target mosquitto.service
+
+[Service]
+User=user01
+WorkingDirectory=/home/user01/AI_HUMAN_CARE/voice/pi
+ExecStart=/home/user01/asr/bin/python kws_service.py
+Environment=PYTHONUNBUFFERED=1
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
