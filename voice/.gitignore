@@ -6,3 +6,6 @@ own_test/
 pi/data/
 pi/kws_service.json
 __pycache__/
+
+# 시험 키트 실행 스크립트는 올림 (루트 .gitignore의 run_* 규칙 예외)
+!kit/run_*.sh

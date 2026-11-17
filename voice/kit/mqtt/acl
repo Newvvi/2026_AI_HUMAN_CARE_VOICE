@@ -1,0 +1,22 @@
+user audio
+topic write home/alert/audio
+
+user fusion
+topic read home/alert/vision
+topic read home/alert/audio
+topic read home/health/#
+topic read $SYS/broker/connection/#
+topic write home/alert/fusion
+topic write home/status
+
+user app
+topic read home/alert/fusion
+topic read home/status
+
+user bridge
+topic write home/alert/vision
+topic write home/health/vision
+topic write $SYS/broker/connection/#
+
+user watchdog
+topic write home/health/#

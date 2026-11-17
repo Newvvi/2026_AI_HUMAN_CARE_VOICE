@@ -320,6 +320,13 @@ voice/
 │       ├── r3_tcresnet.onnx           3차 모델
 │       ├── r3_tcresnet_config.json    특징 설정·종류·기준
 │       └── mel_fb.npy                 log-mel 계산용 필터
+├── kit/                          다른 라즈베리파이에서 바로 시험하는 키트 (zip으로 배포)
+│   ├── README.md                 키트 안내서 (설치 → 시험 → 문제 해결)
+│   ├── install.sh                mosquitto·계정 5개·권한·파이썬 환경 설치
+│   ├── run_test.sh / run_mic.sh  마이크 없이 시험 / 마이크로 실제 감지
+│   ├── make_samples.py           내 녹음에서 감지되는 위급 말만 골라 샘플 만들기
+│   ├── build_kit.sh              음성 파이에서 voice_test_kit.zip 만들기
+│   └── mqtt/                     MQTT 서버 설정 (acl, conf)
 ├── recording/
 │   └── rec_session.py            Pi 마이크 녹음 도우미 (정답표 labels.csv 자동 작성)
 └── training/
@@ -350,6 +357,13 @@ python3 kws_service.py --file 녹음.wav --no-mqtt   # 파일로 시험 (MQTT �
 | `pre_s`, `post_s` | 10, 1 | 클립 앞뒤 길이(초) |
 | `http_port` | 8080 | 클립 서버 포트 |
 | `mqtt` | 빈칸 | host, port, topic, username, password, tls |
+
+### 마이크 없이 시험 (Pi)
+
+```bash
+python3 kws_service.py --replay 샘플폴더/        # 엔터마다 녹음해 둔 위급 말을 실시간으로 흘려 보냄
+bash ~/AI_HUMAN_CARE/voice/kit/build_kit.sh      # 다른 파이용 시험 키트 zip 만들기 (kit/README.md 참고)
+```
 
 ### 녹음 (Pi)
 

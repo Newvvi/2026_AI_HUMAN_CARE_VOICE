@@ -4,6 +4,8 @@
   python3 kws_service.py                     마이크로 실행 (서비스 모드)
   python3 kws_service.py --file X.wav        파일로 시험 (빠르게 처리, 감지마다 클립 저장)
   python3 kws_service.py --file X.wav --no-mqtt   MQTT 보내지 않고 JSON만 출력
+  python3 kws_service.py --replay samples/   마이크 없이 시험: 엔터를 누를 때마다 녹음해 둔 위급 말을
+                                             실시간으로 흘려 보냄 (모델·판단·클립·MQTT는 실제와 똑같이 동작)
 
 감지 → 클립 저장(말 시작 10초 전 ~ 말 끝 1초 후) → JSON 4필드를 MQTT QoS 1로 전송.
 클립은 http://<파이IP>:8080/clips/<incident_id>.wav 로 제공.
@@ -290,13 +292,75 @@ class Detector:
             if new:
                 wr.writerow(["incident_id", "occurred_at", "confidence", "speech_start_s", "speech_end_s", "clip_s", "source"])
             wr.writerow([iid, msg["occurred_at"], msg["confidence"], round(ev["start"], 2), round(end, 2), round(b_s - a_s, 1),
-                         "file" if self.file_mode else "mic"])
+                         "file" if self.file_mode else getattr(self, "source", "mic")])
         clips = sorted(f for f in os.listdir(self.clip_dir) if f.endswith(".wav"))
         for f in clips[:max(0, len(clips) - self.cfg["max_clips"])]:
             os.remove(os.path.join(self.clip_dir, f))
 
 
 # ------------------------------------------------------------------ 실행
+# ------------------------------------------------------------------ 마이크 없는 시험용 소리 (재생 소스)
+class ReplaySource:
+    """배경 소리(background.wav, 없으면 아주 작은 잡음)를 실시간으로 흘리다가, 요청이 오면 위급 말 샘플을 섞어 넣는다.
+    모델·게이트·판단 규칙은 마이크 때와 똑같이 이 소리를 듣는다."""
+
+    def __init__(self, folder, auto_s=0.0):
+        fs = sorted(f for f in os.listdir(folder) if f.endswith(".wav"))
+        bgf = [f for f in fs if f.startswith("background")]
+        self.bg = read_wav(os.path.join(folder, bgf[0])) if bgf else (np.random.default_rng(0).standard_normal(SR * 10) * 2e-4).astype(np.float32)
+        self.names = [f for f in fs if not f.startswith("background")]
+        self.samples = [read_wav(os.path.join(folder, f)) for f in self.names]
+        if not self.samples:
+            sys.exit("%s에 위급 말 샘플(wav)이 없어요" % folder)
+        self.q, self.k, self.bi = collections.deque(), 0, 0
+        self.lock = threading.Lock()
+        self.auto_s = auto_s
+        self.next_auto = time.time() + auto_s if auto_s else None
+        self.t0, self.n = time.time(), 0
+
+    def trigger(self, idx=None):
+        with self.lock:
+            i = self.k % len(self.samples) if idx is None else idx % len(self.samples)
+            self.k += 1
+            self.q.append(self.samples[i].copy())
+        print("  ▶ 흘려 보냄: %s" % self.names[i], flush=True)
+
+    def read(self):
+        wait = self.t0 + (self.n + HOP) / SR - time.time()          # 실제 시간에 맞춰 0.25초씩
+        if wait > 0:
+            time.sleep(wait)
+        idx = (self.bi + np.arange(HOP)) % len(self.bg)
+        x = self.bg[idx].copy()
+        self.bi = (self.bi + HOP) % len(self.bg)
+        if self.next_auto and time.time() >= self.next_auto:
+            self.next_auto += self.auto_s
+            self.trigger()
+        with self.lock:
+            if self.q:
+                cur = self.q[0]
+                m = min(HOP, len(cur))
+                x[:m] += cur[:m]
+                if m == len(cur):
+                    self.q.popleft()
+                else:
+                    self.q[0] = cur[m:]
+        self.n += HOP
+        return x
+
+
+def stdin_trigger(src, stop):
+    """엔터 = 다음 샘플, 숫자 = 그 번호 샘플, q = 끝내기"""
+    while not stop.is_set():
+        line = sys.stdin.readline()
+        if not line:
+            return
+        t = line.strip().lower()
+        if t == "q":
+            stop.set()
+            return
+        src.trigger(int(t) - 1 if t.isdigit() else None)
+
+
 def read_wav(p):
     with wave.open(p) as w:
         ch, sr, raw = w.getnchannels(), w.getframerate(), w.readframes(w.getnframes())
@@ -318,6 +382,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--file")
     ap.add_argument("--no-mqtt", action="store_true")
+    ap.add_argument("--replay", help="마이크 대신 이 폴더의 샘플을 흘려 보내는 시험 모드")
+    ap.add_argument("--auto", type=float, default=0, help="--replay에서 N초마다 자동으로 흘려 보냄")
     ap.add_argument("--cfg", default=os.path.join(HERE, "kws_service.json"))
     a = ap.parse_args()
     cfg = load_cfg(a.cfg)
@@ -344,31 +410,51 @@ def main():
         return
 
     srv = start_http(os.path.join(data_dir, "www"), cfg["http_port"])
-    print("클립 서버: http://%s:%d/clips/" % (cfg["public_host"] or my_ip(), cfg["http_port"]))
-    p = subprocess.Popen(["arecord", "-q", "-D", cfg["device"], "-f", "S16_LE", "-r", str(SR), "-c", str(CH), "-t", "raw"],
-                         stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=0)
+    host = cfg["public_host"] or my_ip()
+    print("=" * 60)
+    print("  이 파이 주소: %s   (앱·영상 브리지는 이 주소의 1883 포트로 접속)" % host)
+    print("  클립 서버:   http://%s:%d/clips/" % (host, cfg["http_port"]))
+    print("  MQTT:        %s:%s  토픽 %s  계정 %s" % (cfg["mqtt"]["host"] or "-", cfg["mqtt"]["port"], cfg["mqtt"]["topic"] or "-", cfg["mqtt"]["username"] or "-"))
+    print("=" * 60, flush=True)
     stop = threading.Event()
     signal.signal(signal.SIGTERM, lambda *_: stop.set())
     signal.signal(signal.SIGINT, lambda *_: stop.set())
+    p, src = None, None
+    if a.replay:
+        src = ReplaySource(a.replay, a.auto)
+        print("마이크 없는 시험 모드: 샘플 %d개" % len(src.samples))
+        for i, n in enumerate(src.names, 1):
+            print("   %d. %s" % (i, n))
+        print("엔터 = 다음 샘플 흘려 보내기 | 번호+엔터 = 그 샘플 | q+엔터 = 끝내기%s" % (" | %g초마다 자동" % a.auto if a.auto else ""), flush=True)
+        threading.Thread(target=stdin_trigger, args=(src, stop), daemon=True).start()
+    else:
+        p = subprocess.Popen(["arecord", "-q", "-D", cfg["device"], "-f", "S16_LE", "-r", str(SR), "-c", str(CH), "-t", "raw"],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=0)
     det = Detector(cfg, eng, snd, clip_dir, data_dir, time.time(), False)
+    det.source = "replay" if src is not None else "mic"
     t_start, last_stat = time.time(), time.time()
     sp = os.path.join(data_dir, "stats.csv")
     need = HOP * CH * 2
     while not stop.is_set():
-        b = b""
-        while len(b) < need:
+        if src is not None:
+            det.push(src.read())
+            b = None
+        else:
+            b = b""
+        while b is not None and len(b) < need:
             c = p.stdout.read(need - len(b))
             if not c:
                 break
             b += c
-        if len(b) < need:
+        if b is not None and len(b) < need:
             err = p.stderr.read().decode(errors="ignore")
             print("마이크 오류: %s" % (err.strip() or "소리를 못 받음"), flush=True)
             if "busy" in err.lower():
                 print("  다른 프로그램(rec_session, voice_service)이 마이크를 쓰고 있어요")
             break
-        x = np.frombuffer(b, dtype="<i2").reshape(-1, CH)[:, 0].astype(np.float32) / 32768.0
-        det.push(x)
+        if b is not None:
+            x = np.frombuffer(b, dtype="<i2").reshape(-1, CH)[:, 0].astype(np.float32) / 32768.0
+            det.push(x)
         if time.time() - last_stat >= 60:
             last_stat = time.time()
             line, temp, thr, gate, ms = stats_line(det, eng, t_start)
@@ -380,7 +466,11 @@ def main():
                     wr.writerow(["time", "uptime_min", "infer_ms_mean", "infer_ms_max", "gate_open", "temp_c", "throttled", "events"])
                 wr.writerow([time.strftime("%Y-%m-%d %H:%M:%S"), round((time.time() - t_start) / 60, 1), round(float(np.mean(ms)), 1) if ms else "",
                              round(max(ms), 1) if ms else "", round(gate, 3), temp, thr, len(det.events)])
-    p.terminate()
+    if det.ev is not None:
+        det.try_finish(det.n / SR, force=True)
+    if p is not None:
+        p.terminate()
+    time.sleep(1)
     srv.shutdown()
     print("멈췄어요.")
 
