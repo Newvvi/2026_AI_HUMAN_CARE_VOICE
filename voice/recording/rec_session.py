@@ -9,6 +9,7 @@
   python3 rec_session.py P1_1m          코드 하나만 한 번 녹음
   python3 rec_session.py status         진행 현황 (자리별·코드별·남은 개수)
   python3 rec_session.py long N2_night  긴 녹음을 백그라운드로 시작 (SSH가 끊겨도 계속)
+  python3 rec_session.py long TN1_self  학습용 오답 긴 녹음 (TN1_self 혼잣말·키보드 1시간, TN2_tv 뉴스 4시간)
   python3 rec_session.py stop           진행 중인 긴 녹음 멈추기
   python3 rec_session.py pack           PC로 옮길 묶음 파일 만들기 (--long 이면 긴 녹음도 포함)
   python3 rec_session.py plan           전체 녹음 목록
@@ -79,7 +80,12 @@ PLAN = collections.OrderedDict([
     ("N1_day", dict(kind="long", desc="낮 활동 3시간 (TV·대화·통화·요리·청소를 평소처럼, 위급한 말은 하지 않음)", hours=3.0, files=1, set="시험(오답)", station="long")),
     ("N2_night", dict(kind="long", desc="밤 8시간 (평소 취침 환경, 안정성 시험 겸함)", hours=8.0, files=1, set="시험(오답)", station="long")),
     ("N3_tv_alarm", dict(kind="long", desc="TV 사건사고 뉴스·위급 장면 20분 (울려도 정상일 수 있는 어려운 경우)", hours=1 / 3.0, files=1, set="시험(어려움)", station="long")),
+    # 학습용 오답(TN): 실제로 오경보가 난 소리(혼잣말·키보드, TV 뉴스)를 모델이 '알림 아님'으로 배우게 하는 녹음. 시험용 N과 섞지 않음 (11/17)
+    ("TN1_self", dict(kind="long", desc="학습용 오답 1시간: 혼잣말·키보드·작업 소리 (평소처럼, 위급한 말은 하지 않음)", hours=1.0, files=1, set="학습(오답)", station="long")),
+    ("TN2_tv", dict(kind="long", desc="학습용 오답 4시간: 유튜브·TV 뉴스와 말소리 방송을 틀어 둠 (사람 없어도 됨)", hours=4.0, files=1, set="학습(오답)", station="long")),
 ])
+LONG_CODES = [c for c, p in PLAN.items() if p["kind"] == "long"]
+
 STATIONS = collections.OrderedDict([
     ("quiet", ("조용한 방", "마이크는 실제 설치 위치 그대로. 방 안 사람은 움직이지 않을 자리에 있어요.")),
     ("1m", ("마이크에서 1m", "줄자로 마이크에서 1m를 재고 그 자리에 서요(바닥에 테이프로 표시). 마이크를 보고 말해요. 화면이 보이는 자리예요.")),
@@ -160,7 +166,7 @@ manifest.csv   통과한 파일마다 한 줄 (평가 스크립트는 이것과 
 log.csv        모든 녹음 시도 기록 (저장·버림·중단 포함)
 long_log.csv   긴 녹음 기록
 보정(C*)은 기준값 조정에만, 시험(P*, N*)은 마지막에 한 번만 평가에 써요.
-학습용(R*)은 모델 학습에만 써요. 시험 파일(P*, N*)과 섞지 않아요 (set 열이 "학습"). 정답표 target=1 은 C, P, R.
+학습용(R*: 위급 말, TN*: 오답 긴 녹음)은 모델 학습에만 써요. 시험 파일(P*, N*)과 섞지 않아요 (set 열이 "학습", "학습(오답)"). 정답표 target=1 은 C, P, R.
 """
 
 def migrate_v1():
@@ -953,7 +959,7 @@ def cmd_status(args=None):
     if others:
         print("  다른 사람: " + ", ".join("%s(%s)" % (s, ", ".join("%s %d/%d" % (c, cnt[(c, s)], n) for c, n in TARGET_OTHER_SPK.items())) for s in others))
     print("  긴 녹음:")
-    for c in ("N1_day", "N2_night", "N3_tv_alarm"):
+    for c in LONG_CODES:
         d = path("long", c)
         fs = sorted(f for f in os.listdir(d) if f.endswith(".wav")) if os.path.isdir(d) else []
         hrs = sum(os.path.getsize(os.path.join(d, f)) for f in fs) / (SR * 4 * 3600)
@@ -984,15 +990,15 @@ def cmd_plan(args=None):
             tot_u += nu * p["files"]; tot_m += m * p["files"]
             print("  %s %d개  %s  (%s)" % (pad(c, 16), p["files"], p["desc"], ("발화 %d개 · %.1f분" % (nu, m)) if nu else "%.0f초" % p["sec"]))
     print(B + "[long] 긴 녹음" + R)
-    for c in ("N1_day", "N2_night", "N3_tv_alarm"):
+    for c in LONG_CODES:
         print("  %s %s (%.1f시간)" % (pad(c, 16), PLAN[c]["desc"], PLAN[c]["hours"]))
-    print("\n짧은 녹음 합계: 발화 %d개, 녹음 약 %.0f분. 긴 녹음 합계 11시간 20분." % (tot_u, tot_m))
+    print("\n짧은 녹음 합계: 발화 %d개, 녹음 약 %.0f분. 긴 녹음 합계 %.1f시간." % (tot_u, tot_m, sum(PLAN[c]["hours"] for c in LONG_CODES)))
 
 # ---------------------------------------------------------------- 긴 녹음
 def cmd_long(args):
     code = args.code
     if code not in PLAN or PLAN[code]["kind"] != "long":
-        print("긴 녹음 코드: N1_day / N2_night / N3_tv_alarm"); return
+        print("긴 녹음 코드: " + " / ".join(LONG_CODES)); return
     if not args.fg:
         stop, note = preflight()
         if stop:
