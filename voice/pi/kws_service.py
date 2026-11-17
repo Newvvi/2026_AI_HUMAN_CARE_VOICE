@@ -263,7 +263,8 @@ class Detector:
         self.ev = None
 
     def emit(self, ev, clip, a_s, b_s, end):
-        occ = datetime.datetime.fromtimestamp(self.t0 + ev["t_fire"], KST).replace(microsecond=0)
+        # occurred_at = 실제로 소리가 난 순간(말 시작). 판정을 끝낸 시각(t_fire)이 아님 — 앱이 영상과 10초 안에 묶는 기준(11/17 앱 팀 요청)
+        occ = datetime.datetime.fromtimestamp(self.t0 + ev["start"], KST).replace(microsecond=0)
         iid = "A_" + occ.strftime("%y%m%d%H%M%S")
         k = 1
         while os.path.exists(os.path.join(self.clip_dir, iid + ".wav")):

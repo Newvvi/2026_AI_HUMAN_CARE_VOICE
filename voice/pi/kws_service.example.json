@@ -12,10 +12,10 @@
  "post_s": 1.0,
  "max_clips": 300,
  "mqtt": {
-  "host": "",
+  "host": "localhost",
   "port": 1883,
-  "topic": "",
-  "username": "",
+  "topic": "home/alert/audio",
+  "username": "audio",
   "password": "",
   "tls": false,
   "client_id": "voice-pi"
