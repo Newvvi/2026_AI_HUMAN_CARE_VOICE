@@ -11,7 +11,7 @@
 클립은 http://<파이IP>:8080/clips/<incident_id>.wav 로 제공.
 설정: 같은 폴더의 kws_service.json (없으면 기본값으로 만듦)
 """
-import os, sys, io, csv, json, time, wave, queue, signal, argparse, threading, subprocess, collections, datetime
+import os, sys, io, csv, json, time, wave, queue, signal, argparse, threading, subprocess, collections, datetime, atexit
 from functools import partial
 import numpy as np
 
@@ -117,6 +117,7 @@ class Sender:
         self.m, self.enabled = cfg["mqtt"], enabled and bool(cfg["mqtt"]["host"]) and bool(cfg["mqtt"]["topic"])
         self.pending = os.path.join(data_dir, "pending.jsonl")
         self.q, self.cli = queue.Queue(), None
+        self.status_topic = None
         if enabled and not self.enabled:
             print("MQTT 설정(host, topic)이 비어 있어요 → 보내지 않고 JSON만 기록해요")
         if self.enabled:
@@ -132,6 +133,12 @@ class Sender:
                 self.cli.username_pw_set(self.m["username"], self.m["password"])
             if self.m["tls"]:
                 self.cli.tls_set()
+            # 상태 토픽 (김우석 배포 문서 v1.1.0): 접속하면 online, 비정상 종료는 브로커가 LWT로 offline, 정상 종료는 직접 offline
+            self.status_topic = self.m.get("status_topic", "home/status/audio")
+            if self.status_topic:
+                self.cli.will_set(self.status_topic, "offline", qos=1, retain=True)   # 접속 전에 등록해야 함
+                self.cli.on_connect = self._on_connect
+                atexit.register(self.close)
             self.cli.reconnect_delay_set(1, 30)
             self.cli.connect_async(self.m["host"], int(self.m["port"]), keepalive=30)
             self.cli.loop_start()
@@ -139,6 +146,25 @@ class Sender:
 
     def send(self, msg):
         self.q.put(msg)
+
+    def _on_connect(self, client, userdata, flags, rc, *rest):
+        if getattr(rc, "is_failure", rc != 0):
+            print("  MQTT: 연결 거부 %s" % rc, flush=True)
+            return
+        client.publish(self.status_topic, "online", qos=1, retain=True)
+        print("  MQTT: 연결됨 → %s = online" % self.status_topic, flush=True)
+
+    def close(self):
+        if not self.cli or not self.status_topic or not self.cli.is_connected():
+            return
+        try:
+            info = self.cli.publish(self.status_topic, "offline", qos=1, retain=True)
+            info.wait_for_publish(timeout=3)
+            print("  MQTT: 종료 → %s = offline" % self.status_topic, flush=True)
+        except Exception as e:
+            print("  MQTT: offline 발행 실패 %s" % e, flush=True)
+        self.cli.disconnect()
+        self.cli.loop_stop()
 
     def _publish(self, msg):
         if not self.enabled:
@@ -415,7 +441,7 @@ def main():
     srv = start_http(os.path.join(data_dir, "www"), cfg["http_port"])
     host = cfg["public_host"] or my_ip()
     print("=" * 60)
-    print("  이 파이 주소: %s   (앱·영상 브리지는 이 주소의 1883 포트로 접속)" % host)
+    print("  이 파이 주소: %s   (영상 파이·확인 화면은 이 주소의 1883 포트로 접속)" % host)
     print("  클립 서버:   http://%s:%d/clips/" % (host, cfg["http_port"]))
     print("  MQTT:        %s:%s  토픽 %s  계정 %s" % (cfg["mqtt"]["host"] or "-", cfg["mqtt"]["port"], cfg["mqtt"]["topic"] or "-", cfg["mqtt"]["username"] or "-"))
     print("=" * 60, flush=True)

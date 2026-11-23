@@ -18,7 +18,8 @@
   "username": "audio",
   "password": "",
   "tls": false,
-  "client_id": "voice-pi"
+  "client_id": "voice-pi",
+  "status_topic": "home/status/audio"
  },
  "data_dir": "data"
 }

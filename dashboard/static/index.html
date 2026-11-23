@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#EEF2EF">
+<title>독거노인 안심 모니터</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏠</text></svg>">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <h1>독거노인 안심 모니터</h1>
+    <p class="sub">음성 R1과 영상 R2가 보낸 감지를 보호자가 확인하는 화면</p>
+  </div>
+  <div class="top-tools">
+    <span id="mode-badge" class="mode-badge"></span>
+    <button id="btn-sound" class="tool" type="button" aria-pressed="false">알림음 켜기</button>
+    <button id="btn-big" class="tool" type="button" aria-pressed="false">큰 글씨</button>
+  </div>
+</header>
+
+<div id="demo-bar" class="demo-bar" hidden>
+  <span>데모 모드: 실제 파이 없이 시나리오를 재생합니다. 재생하면 이전 데모 기록은 지워집니다.</span>
+  <button type="button" data-demo="start" data-speed="1">처음부터 재생</button>
+  <button type="button" data-demo="start" data-speed="5" title="시간 간격이 1/5로 줄어 연결선이 실제보다 많이 생깁니다">5배속으로 처음부터</button>
+  <button type="button" data-demo="stop">멈춤</button>
+  <button type="button" data-demo="reset">기록 지우기</button>
+</div>
+
+<section class="status-strip" aria-label="장치 연결 상태">
+  <div class="st" id="st-broker"><span class="dot"></span><div><b>브로커</b><small>R1 Mosquitto</small></div><em></em></div>
+  <div class="st audio" id="st-audio"><span class="dot"></span><div><b>음성 R1</b><small>home/status/audio</small></div><em></em></div>
+  <div class="st vision" id="st-vision"><span class="dot"></span><div><b>영상 R2</b><small>home/status/vision</small></div><em></em></div>
+</section>
+<p id="broker-error" class="broker-error" hidden></p>
+
+<nav class="tabs" aria-label="화면 전환">
+  <button type="button" data-tab="live" class="on">실시간<span id="pending-badge" class="badge" hidden></span></button>
+  <button type="button" data-tab="timeline">타임라인</button>
+  <button type="button" data-tab="stats">기록·통계</button>
+  <button type="button" data-tab="system">시스템</button>
+</nav>
+
+<main>
+  <section id="tab-live" class="tab on">
+    <div class="today" id="today"></div>
+    <div class="live-grid">
+      <section class="pending" aria-labelledby="h-pending">
+        <h2 id="h-pending">확인 대기</h2>
+        <div id="pending-list"></div>
+      </section>
+      <section class="feed" aria-labelledby="h-feed">
+        <h2 id="h-feed">최근 감지</h2>
+        <ol id="feed-list" class="feed-list"></ol>
+      </section>
+    </div>
+  </section>
+  <section id="tab-timeline" class="tab">
+    <div class="tl-head">
+      <h2>타임라인</h2>
+      <div class="seg" role="group" aria-label="보는 범위">
+        <button type="button" data-range="600" class="on">10분</button>
+        <button type="button" data-range="3600">1시간</button>
+        <button type="button" data-range="today">오늘</button>
+        <button type="button" data-range="all">전체</button>
+      </div>
+    </div>
+    <p class="tl-sum" id="tl-sum"></p>
+    <div class="tl-wrap" id="tl-wrap"></div>
+    <ul class="tl-legend">
+      <li><i class="lg audio"></i>음성 R1 감지</li>
+      <li><i class="lg vision"></i>영상 R2 감지</li>
+      <li><i class="lg ring-none"></i>확인 전</li>
+      <li><i class="lg ring-ok"></i>확인됨</li>
+      <li><i class="lg ring-false"></i>오경보</li>
+      <li><i class="lg link"></i>10초 안 함께 감지</li>
+      <li><i class="lg off"></i>연결 끊김 구간</li>
+    </ul>
+    <p class="tl-note">점 크기는 신뢰도입니다. 연결선은 음성 감지마다 10초 안에서 가장 가까운 영상 감지 하나를 이은 참고 표시입니다. 긴급 여부를 판단하지 않습니다.</p>
+    <h2 class="pair-h">10초 안 함께 감지된 쌍</h2>
+    <ol id="pair-list" class="pair-list"></ol>
+  </section>
+  <section id="tab-stats" class="tab">
+    <div class="tl-head">
+      <h2>기록·통계</h2>
+      <div class="seg" role="group" aria-label="통계 기간">
+        <button type="button" data-srange="today" class="on">오늘</button>
+        <button type="button" data-srange="all">전체 기록</button>
+      </div>
+    </div>
+    <p class="tl-sum" id="st-sum"></p>
+    <div class="tbl"><table class="cmp" id="cmp-table"></table></div>
+    <p class="tl-note">실측 정밀도는 보호자가 확인됨·오경보로 표시한 감지만으로 계산합니다(확인 전 제외). 표시한 건수가 적으면 값이 크게 흔들립니다.</p>
+    <div class="charts">
+      <figure class="chart-box wide"><figcaption>시간대별 감지 수</figcaption><div class="cv"><canvas id="ch-time"></canvas></div></figure>
+      <figure class="chart-box"><figcaption>음성 R1 신뢰도 분포 (표시 결과별)</figcaption><div class="cv"><canvas id="ch-conf-audio"></canvas></div></figure>
+      <figure class="chart-box"><figcaption>영상 R2 신뢰도 분포 (표시 결과별)</figcaption><div class="cv"><canvas id="ch-conf-vision"></canvas></div></figure>
+    </div>
+    <div class="export">
+      <a class="btn sub" href="/api/export.csv">CSV 내려받기 (엑셀)</a>
+      <a class="btn sub" href="/api/export.json">JSON 내려받기</a>
+      <button class="btn sub" type="button" data-act="copysum">보고서용 요약 복사</button>
+      <span id="copy-msg" class="copy-msg" role="status"></span>
+    </div>
+    <p class="tl-note">받은 원문은 노트북의 <b>data/live</b>(실시간) 또는 <b>data/demo</b>(데모) 폴더 events.jsonl, 확인 표시는 labels.jsonl에 그대로 남습니다.</p>
+  </section>
+  <section id="tab-system" class="tab">
+    <h2>접속 정보</h2>
+    <div class="sys-grid">
+      <div class="sys-card">
+        <h3>R1 (브로커) 주소</h3>
+        <p class="big-ip" id="sys-r1">-</p>
+        <p class="tl-note">영상 팀 R2 설정에 넣을 줄</p>
+        <pre class="cmd" id="sys-r2cmd">-</pre>
+        <button class="btn sub" type="button" data-act="copy" data-copy="#sys-r2cmd">복사</button>
+      </div>
+      <div class="sys-card">
+        <h3>휴대폰으로 보기</h3>
+        <div class="qr"><img id="sys-qr" alt="휴대폰 접속 QR 코드" width="150" height="150"></div>
+        <p class="sys-url" id="sys-url">-</p>
+        <p class="tl-note">같은 핫스팟에서 카메라로 찍거나 http://까지 입력하세요.</p>
+      </div>
+    </div>
+
+    <h2 class="pair-h">기기 연결 기록</h2>
+    <div class="tbl"><table class="cmp" id="sys-dev"></table></div>
+    <p class="tl-note">가동률은 이 화면을 켠 뒤(또는 새 기록 시작 뒤) 기준입니다. offline은 정상 종료와 LWT(비정상 끊김)를 모두 포함합니다.</p>
+    <details class="d-sec raw-d"><summary>상태 변화 전체 기록</summary><ol class="hist" id="sys-hist"></ol></details>
+
+    <h2 class="pair-h">통신 로그</h2>
+    <div class="tbl"><table class="cmp" id="sys-log"></table></div>
+    <ul class="checks" id="sys-checks"></ul>
+
+    <h2 class="pair-h">기록 관리</h2>
+    <div class="export">
+      <a class="btn sub" href="/api/export.raw">원문 로그 내려받기 (events.jsonl)</a>
+      <button class="btn sub" type="button" data-act="newsession">새 기록 시작</button>
+      <span id="sess-msg" class="copy-msg" role="status"></span>
+    </div>
+    <p class="tl-note">새 기록 시작은 지금까지의 기록(원문·확인 표시·클립)을 노트북 data/archive 폴더로 옮겨 보관하고 화면을 비웁니다. 시연을 시작할 때 한 번 누르세요.</p>
+  </section>
+</main>
+
+<dialog id="sheet" class="sheet" aria-label="감지 상세">
+  <div class="sheet-body" id="sheet-body"></div>
+  <form method="dialog"><button class="sheet-close" type="submit">닫기</button></form>
+</dialog>
+
+<footer class="foot">AI 휴먼케어 학생연구회 · 독거노인 위험 감지 및 알림 시스템</footer>
+
+<script src="/static/vendor/wavesurfer.min.js"></script>
+<script src="/static/vendor/chart.umd.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

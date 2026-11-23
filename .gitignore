@@ -50,3 +50,8 @@ __pycache__/
 .ipynb_checkpoints/
 venv/
 .venv/
+
+# 11/23 dashboard: 받은 기록은 올리지 않고, 데모용 합성 클립만 올림
+dashboard/data/
+!dashboard/samples/clips/*.wav
+!dashboard/run_*.bat
