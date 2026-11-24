@@ -411,11 +411,14 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--file")
     ap.add_argument("--no-mqtt", action="store_true")
+    ap.add_argument("--device", help="마이크 장치 (예: plughw:1,0). 없으면 설정 파일의 device")
     ap.add_argument("--replay", help="마이크 대신 이 폴더의 샘플을 흘려 보내는 시험 모드")
     ap.add_argument("--auto", type=float, default=0, help="--replay에서 N초마다 자동으로 흘려 보냄")
     ap.add_argument("--cfg", default=os.path.join(HERE, "kws_service.json"))
     a = ap.parse_args()
     cfg = load_cfg(a.cfg)
+    if a.device:
+        cfg["device"] = a.device
     data_dir = cfg["data_dir"]
     clip_dir = os.path.join(data_dir, "www", "clips")
     os.makedirs(clip_dir, exist_ok=True)

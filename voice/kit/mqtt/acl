@@ -1,22 +1,13 @@
+# 음성 파이(R1) 브로커 권한 — 통신 기준 v1.1.0 형식 (계정 audio·vision·app, 브리지 없음)
+# build_kit.sh는 R1의 실제 /etc/mosquitto/acl이 있으면 그것으로 이 파일을 바꿔 넣는다
 user audio
 topic write home/alert/audio
+topic write home/status/audio
 
-user fusion
-topic read home/alert/vision
-topic read home/alert/audio
-topic read home/health/#
-topic read $SYS/broker/connection/#
-topic write home/alert/fusion
-topic write home/status
+user vision
+topic write home/alert/vision
+topic write home/status/vision
 
 user app
-topic read home/alert/fusion
-topic read home/status
-
-user bridge
-topic write home/alert/vision
-topic write home/health/vision
-topic write $SYS/broker/connection/#
-
-user watchdog
-topic write home/health/#
+topic read home/alert/#
+topic read home/status/#
